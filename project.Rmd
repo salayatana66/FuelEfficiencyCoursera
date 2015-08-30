@@ -1,0 +1,152 @@
+---
+title: "Fuel efficiency of manual and automatic transmissions"
+author: "Andrea Schioppa"
+output: html_document
+---
+
+```{r loading, eval = TRUE, echo = FALSE}
+data(mtcars)
+library(xtable)
+fit <- lm(mpg ~ am * wt + hp, data = mtcars)
+options(xtable.comment=FALSE)
+```
+
+```{r new_fit, eval=TRUE, echo = FALSE}
+newmtcars <- mtcars[-c(17, 20, 31, 18),]
+fit.new <- lm(mpg ~ am * wt + hp, data = newmtcars)
+cf.new <- coef(fit.new)
+sfit.new <- summary(fit.new)
+```
+
+```{r am_conf, eval = TRUE, echo = FALSE}
+interval_am <- sfit.new$coefficients[2,1] + c(-1,1) * sfit.new$coefficients[2,2] *
+    qt(0.975, df = sfit.new$df[2])
+```
+
+# Summary
+
+We use the dataset `mtcars` to compare the fuel efficiency of automatic and manual trasmissions.
+We fit a linear model predicting the miles per US gallon (`mpg`) using the transmission (`am=0` for
+automatic, `am=1` for manual), the weight `wt` (in 1000lbs) and the gross horsepower `hp` as predictors;
+the choice of the model is motivated by analysis of variance.
+
+We find that manual transmission leads to an estimated increase of
+`mpg` of `r sprintf("%1.2f",cf.new[2])` with a $95\%$ confidence interval  [`r sprintf("%1.2f",interval_am[1])`,`r sprintf("%2.2f",interval_am[2])`].
+
+However, we also find that with increasing weight automatic cars lose
+less efficiency (see interpretation of the coefficient `am:wt`).
+A limitation of the model is that manual cars tend to weigh less than automatic ones, so comparing efficiency
+for a given weight seems reasonable in a range of about $[2500,3500]$ lbs.
+
+# Analysis
+
+The data set `mtcars` consists of 32 observations of 11 variables. In Figure 1 we make some exploratory
+plots to compare `mpg` with the other variables. Besides using `am` (transmission type), we
+decide to try as continuous predictors `wt`, `hp`, `disp`,  and as categorical predictors
+`cyl`, `vs`, `gear`.
+
+To select the model we first tried
+
+```{r selection_continuous, message=FALSE}
+fit1 <- lm(mpg ~ am + wt, data=mtcars); fit2 <- update(fit1, mpg ~ am*wt)
+fit3 <- update(fit2, . ~ .+ hp); fit4 <- update(fit3, . ~ . + am*hp);
+anova(fit1,fit2,fit3,fit4)$"Pr(>F)"
+```
+
+because of the p-values we decide to use the model `mpg~am*wt+hp`. We have also tried to include any of `disp`,
+`vs`, `cyl` and `gear`: `anova` suggests that adding any of these predictors is not significant (we
+omit the code for reasons of space).
+
+We fit the model with `fit <- lm(mpg ~ am * wt + hp, data = mtcars)`; the diagnostic graphs
+in Figures 2,3 indicate "outliers", Maserati Bora(31), Chrysler Imperial(17), Toyota Corolla(20), Fiat 128(18)
+that we decide to remove after inspecting `dfbetas(fit)`, `hatvalues(fit)`.
+
+We refit the model and observe an improvement through the quantile-quantile plot Figure 4.
+```{r, ref.label = "new_fit", eval = FALSE}
+```
+
+We show a summary of the coefficients and p-values.
+```{r summary, echo=FALSE, results="asis"}
+sum.table <- sfit.new$coefficients[,c(-3)]
+colnames(sum.table)[3] <- "p-value"
+xtable(sum.table, display=c("s", "f", "e", "e"))
+```
+
+The coefficient `am` is interpreted as the expected increase in `mpg` when considering
+a manual vs. an automatic transmission. The coefficient `wt` is interpreted as the
+change in `mpg` when increasing the weight by 1 unit (=1000 lbs) for an automatic transmission.
+Finally, `am:wt` quantifies the change in `wt` if we consider a manual transmission.
+
+The 95% confidence interval for `am` is:
+
+```{r, ref.label =  "am_conf", eval=FALSE}
+```
+```{r echoing am_conf}
+interval_am
+```
+
+We similarly compute the 95% confidence interval for `wt`:
+
+```{r wt_conf, echo=FALSE}
+interval_wt_auto <- sfit.new$coefficients[3,1] + c(-1,1) * sfit.new$coefficients[3,2] *
+    qt(0.975, df = sfit.new$df[2])
+interval_wt_auto
+```
+and `am:wt`:
+
+```{r wt_ratio, echo=FALSE}
+interval_wt_manual_ratio <- sfit.new$coefficients[5,1] + c(-1,1) * sfit.new$coefficients[5,2] *
+    qt(0.975, df = sfit.new$df[2])
+interval_wt_manual_ratio
+```
+
+# Appendix: Figures
+
+```{r exploratory_plot1, echo=FALSE, dev = 'pdf', fig.height=4, fig.cap='Exploratory plot 1'}
+par(mfrow=c(2,5), mar=c(4,4,2,1), oma=c(0,0,2,0))
+with(mtcars, plot(mpg~cyl, type = "n", main = "mpg vs. cyl"))
+with(subset(mtcars, am==0), points(cyl, mpg, col="blue"))
+with(subset(mtcars, am==1), points(cyl, mpg, col="red"))
+legend("topright", pch=1, col=c("blue", "red"), legend = c("automatic", "manual"), cex=0.8)
+with(mtcars, plot(mpg~hp, type = "n", main = "mpg vs. hp"))
+with(subset(mtcars, am==0), points(hp, mpg, col="blue"))
+with(subset(mtcars, am==1), points(hp, mpg, col="red"))
+with(mtcars, plot(mpg~wt, type = "n", main = "mpg vs. wt"))
+with(subset(mtcars, am==0), points(wt, mpg, col="blue"))
+with(subset(mtcars, am==1), points(wt, mpg, col="red"))
+with(mtcars, plot(mpg~qsec, type = "n", main = "mpg vs. qsec"))
+with(subset(mtcars, am==0), points(qsec, mpg, col="blue"))
+with(subset(mtcars, am==1), points(qsec, mpg, col="red"))
+with(mtcars, plot(mpg~drat, type = "n", main = "mpg vs. drat"))
+with(subset(mtcars, am==0), points(drat, mpg, col="blue"))
+with(subset(mtcars, am==1), points(drat, mpg, col="red"))
+with(mtcars, plot(mpg~gear, type = "n", main = "mpg vs. gear"))
+with(subset(mtcars, am==0), points(gear, mpg, col="blue"))
+with(subset(mtcars, am==1), points(gear, mpg, col="red"))
+with(mtcars, plot(mpg~am, type = "n", main = "mpg vs. am"))
+with(subset(mtcars, am==0), points(am, mpg, col="blue"))
+with(subset(mtcars, am==1), points(am, mpg, col="red"))
+with(mtcars, plot(mpg~vs, type = "n", main = "mpg vs. vs"))
+with(subset(mtcars, am==0), points(vs, mpg, col="blue"))
+with(subset(mtcars, am==1), points(vs, mpg, col="red"))
+with(mtcars, plot(mpg~disp, type = "n", main = "mpg vs. disp"))
+with(subset(mtcars, am==0), points(disp, mpg, col="blue"))
+with(subset(mtcars, am==1), points(disp, mpg, col="red"))
+with(mtcars, plot(mpg~carb, type = "n", main = "mpg vs. carb"))
+with(subset(mtcars, am==0), points(carb, mpg, col="blue"))
+with(subset(mtcars, am==1), points(carb, mpg, col="red"))
+```
+
+```{r diagnostic_plot1, echo=FALSE, dev = 'pdf', fig.height=5, fig.cap='Diagnostic plot 1'}
+par(mfrow = c(1,2))
+plot(fit, which=1)
+plot(fit, which=2)
+```
+
+```{r diagnostic_plot2, echo=FALSE, dev = 'pdf', fig.height=5, fig.cap='Diagnostic plot 2'}
+plot(fit, which=5)
+```
+
+```{r qqplot, echo=FALSE, dev = 'pdf', fig.height=5, fig.cap='QQ-plot after removing "outliers"'}
+plot(fit.new, which=2)
+```
